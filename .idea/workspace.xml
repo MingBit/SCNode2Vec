@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ChangeListManager">
+    <list default="true" id="56802d56-3ec0-4293-88e7-36589948a48d" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/Simulation_GRN.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Expr.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/call_model_compare.sh" beforeDir="false" afterPath="$PROJECT_DIR$/call_model_compare.sh" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/links.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model_compare.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model_compare.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/model_node2vec.py" beforeDir="false" afterPath="$PROJECT_DIR$/src/model_node2vec.py" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Python Script" />
+      </list>
+    </option>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="ProjectId" id="1cXqh0GdnT2uYDWfD8v4xuKbBig" />
+  <component name="ProjectLevelVcsManager">
+    <ConfirmationsSetting value="1" id="Add" />
+  </component>
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showExcludedFiles" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent">
+    <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
+    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+  </component>
+  <component name="RecentsManager">
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$" />
+    </key>
+  </component>
+  <component name="SvnConfiguration">
+    <configuration />
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="56802d56-3ec0-4293-88e7-36589948a48d" name="Default Changelist" comment="" />
+      <created>1590685400561</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1590685400561</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="WindowStateProjectService">
+    <state x="458" y="200" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog" timestamp="1590686627785">
+      <screen x="0" y="23" width="1440" height="806" />
+    </state>
+    <state x="458" y="200" key="#com.intellij.refactoring.safeDelete.UnsafeUsagesDialog/0.23.1440.806@0.23.1440.806" timestamp="1590686627785" />
+    <state x="385" y="153" width="670" height="676" key="search.everywhere.popup" timestamp="1592150658462">
+      <screen x="0" y="23" width="1440" height="806" />
+    </state>
+    <state x="385" y="153" width="670" height="676" key="search.everywhere.popup/0.23.1440.806@0.23.1440.806" timestamp="1592150658462" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/../PySCNet/AlgEval/model_summarise.py</url>
+          <line>7</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
