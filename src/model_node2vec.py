@@ -69,8 +69,8 @@ def _biased_randomWalk(args):
         vec_tmp = list()
         vec_len = 0
         vec_tmp.append(start_node)
-        while vec_len < walk_len - 1:
 
+        while vec_len < walk_len - 1:
             neighours = list(nx.neighbors(graph, vec_tmp[-1]))
             prob_list = list()
 
@@ -103,7 +103,7 @@ def _build_NN_Model(vector_list, size, **parameter_list) -> gensim.models.Word2V
     return gensim.models.Word2Vec(vector_list, size=size, **parameter_list)
 
 
-def _binary_classifier(embedded_node, reference_links, param_grid, select_n, use_ref=False, **kwargs):
+def binary_classifier(embedded_node, reference_links, param_grid, select_n, use_ref=False, **kwargs):
     """
     build binary classifier for classification
     embedded_node: a data frame with rows corresponding to genes and columns representing embedded dimensions
@@ -158,8 +158,8 @@ def _binary_classifier(embedded_node, reference_links, param_grid, select_n, use
     return prediction_all_df
 
 
-def run_node2vec(Expr, p, q, walk_len, num_walks, size,
-                 workers, **kwargs):
+def run_randmwalk(Expr, p, q, walk_len, num_walks, size,
+                  workers, **kwargs):
     """
     run pca and build node2vec model
     Expr: gene expression matrix
@@ -184,8 +184,9 @@ def run_node2vec(Expr, p, q, walk_len, num_walks, size,
     top_pcs.index = Expr.index
 
     print('-----running node2vec------')
-    mat = kneighbors_graph(top_pcs, n_neighbors=int(Expr.shape[0]/2), metric='cosine', mode='distance', include_self=True)
-    mat.data = 1-mat.data
+    mat = kneighbors_graph(top_pcs, n_neighbors=int(Expr.shape[0] / 2), metric='cosine', mode='distance',
+                           include_self=True)
+    mat.data = 1 - mat.data
     graph = nx.from_scipy_sparse_matrix(mat, create_using=nx.Graph())
     graph = nx.relabel.relabel_nodes(graph, dict(zip(list(graph.nodes), list(Expr.index))))
 
