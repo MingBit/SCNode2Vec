@@ -12,6 +12,8 @@ import itertools
 import copy
 import seaborn as sns
 from sklearn import metrics
+from src import model_node2vec as nv
+
 pd.set_option('mode.chained_assignment', None)
 
 
@@ -23,7 +25,7 @@ def read_data(file_path, dropRate=0):
     Sim_Ref_raw = Sim_Ref_raw.drop(columns='Type')
     Sim_Ref_raw.columns = ['source', 'target', 'weight']
 
-    Full_Ref = pd.DataFrame(itertools.permutations(Sim.index, 2), columns=['source', 'target'])
+    Full_Ref = pd.DataFrame([f for f in itertools.product(Sim.index, repeat=2)], columns=['source', 'target'])
     Sim_Ref = pd.merge(Full_Ref, Sim_Ref_raw, how='outer').fillna(0)
 
     Sim_Ref_dropout = copy.deepcopy(Sim_Ref)
@@ -32,6 +34,27 @@ def read_data(file_path, dropRate=0):
     Sim_Ref_dropout.loc[replaceNum, 'weight'] = 0
 
     return [Sim, Sim_Ref, Sim_Ref_dropout, Sim_Ref_raw.shape[0]]
+
+
+def repeat_node2vec(Sim, Sim_Ref, Sim_Ref_dropout, p, q, top_edges, param_grid, use_ref=False):
+
+    node_matrix = nv.run_node2vec(Sim, p=p, q=q, size=10, walk_len=10,
+                                  num_walks=1000, workers=10)
+    if use_ref:
+        gne_Sim_node2vec = nv._binary_classifier(embedded_node=node_matrix, reference_links=Sim_Ref_dropout,
+                                                 select_n=0,
+                                                 use_ref=True, param_grid=param_grid)
+    else:
+        gne_Sim_node2vec = nv._binary_classifier(embedded_node=node_matrix, reference_links=Sim_Ref_dropout,
+                                                 select_n=int(Sim_Ref_dropout.shape[0] * 0.25),
+                                                 param_grid=param_grid)
+    Node2Vec_dict = dict(
+        zip(['fpr', 'tpr', 'pre', 'recall_list', 'auc', 'avg_pre', 'precision', 'recall', 'f1_score'],
+            test_run(links=gne_Sim_node2vec.reindex(
+                gne_Sim_node2vec.weight.abs().sort_values(ascending=False).index).head(
+                top_edges), Ref_links=Sim_Ref, input_dataset=Sim)))
+
+    return Node2Vec_dict
 
 
 def remove_duplicate(links):
@@ -45,7 +68,6 @@ def remove_duplicate(links):
 
 
 def mapping_edges(df_1, df_2, df_1_col_1, df_1_col_2, df_2_col_1, df_2_col_2):
-
     df_1['tmp1'] = df_1[df_1_col_1] + '_' + df_1[df_1_col_2]
     df_2['tmp1'] = df_2[df_2_col_1] + '_' + df_2[df_2_col_2]
 
@@ -71,7 +93,7 @@ def evaluation(links, Ref_links, Num_Genes):
     print('TP:', TP, '\n', 'FN:', FN, '\n', 'FP:', FP, '\n', 'TN:', TN)
 
     print('Precision:', Precision, '\n', 'Recall:', Recall, '\n',
-          'F1 Score:', F1_Score, '\n', 'FDR:', FP / (TN + FP))
+          'FDR:', FP / (TN + FP))
     return Detected, TP, FN, FP, TN, Precision, Recall, FDR, F1_Score
 
 
@@ -94,6 +116,7 @@ def build_curves(ax, node_dict_list, GENIE3_dict, PIDC_dict, GRNBOOST2_dict,
                  curve, filename, p, q, dropRate):
     keywords = ['fpr', 'tpr'] if curve == 'ROC' else ['recall_list', 'pre']
     fill = 1 if curve == 'ROC' else 0
+
     node_fpr_pre_df = pd.DataFrame(node_dict_list[i][keywords[0]] for i in range(len(node_dict_list))).fillna(fill)
     node_tpr_recall_df = pd.DataFrame(node_dict_list[i][keywords[1]] for i in range(len(node_dict_list))).fillna(fill)
     node_auc_list = list(node_dict_list[i]['auc'] for i in range(len(node_dict_list)))
@@ -106,15 +129,20 @@ def build_curves(ax, node_dict_list, GENIE3_dict, PIDC_dict, GRNBOOST2_dict,
 
     fpr_dict = {'GENIE3': GENIE3_dict[keywords[0]], 'PIDC': PIDC_dict[keywords[0]],
                 'GRNBOOST2': GRNBOOST2_dict[keywords[0]],
-                'Node2Vec': node_fpr_pre_df.mean(0)}
+                'Node2Vec': node_fpr_pre_df.iloc[0],
+                'Node2Vec_Ref': node_fpr_pre_df.iloc[1]}
+
     tpr_dict = {'GENIE3': GENIE3_dict[keywords[1]], 'PIDC': PIDC_dict[keywords[1]],
                 'GRNBOOST2': GRNBOOST2_dict[keywords[1]],
-                'Node2Vec': node_tpr_recall_df.mean(0)}
+                'Node2Vec': node_tpr_recall_df.iloc[0],
+                'Node2Vec_Ref': node_tpr_recall_df.iloc[1]}
+
     auc_dict = {'GENIE3': GENIE3_dict['auc'], 'PIDC': PIDC_dict['auc'], 'GRNBOOST2': GRNBOOST2_dict['auc'],
-                'Node2Vec': np.mean(node_auc_list)}
+                'Node2Vec': node_auc_list[0], 'Node2Vec_Ref': node_auc_list[1]}
+
     avgpre_dict = {'GENIE3': GENIE3_dict['avg_pre'], 'PIDC': PIDC_dict['avg_pre'],
                    'GRNBOOST2': GRNBOOST2_dict['avg_pre'],
-                   'Node2Vec': np.mean(node_avgpre_list)}
+                   'Node2Vec': node_avgpre_list[0], 'Node2Vec_Ref': node_avgpre_list[1]}
 
     for i, color in zip(list(auc_dict.keys()), colors):
         ax.plot(fpr_dict[i], tpr_dict[i],
@@ -137,18 +165,18 @@ def build_plot(ax, node_dict_list, GENIE3_dict, PIDC_dict, GRNBOOST2_dict):
     node_recall_list = list(node_dict_list[i]['recall'] for i in range(len(node_dict_list)))
     node_f1score_list = list(node_dict_list[i]['f1_score'] for i in range(len(node_dict_list)))
 
-    Algorithms = ['GENIE3', 'PIDC', 'GRNBOOST2', 'Node2Vec']
+    Algorithms = ['GENIE3', 'PIDC', 'GRNBOOST2', 'Node2Vec', 'Node2Vec_Ref']
     Eva_Methods = ['Precision', 'Recall', 'F1_Score']
 
     data = [[GENIE3_dict['precision'], PIDC_dict['precision'], GRNBOOST2_dict['precision'],
-             np.mean(node_precision_list)],
+             node_precision_list[0], node_precision_list[1]],
             [GENIE3_dict['recall'], PIDC_dict['recall'], GRNBOOST2_dict['recall'],
-             np.mean(node_recall_list)],
+             node_recall_list[0], node_recall_list[1]],
             [GENIE3_dict['f1_score'], PIDC_dict['f1_score'], GRNBOOST2_dict['f1_score'],
-             np.mean(node_f1score_list)]]
+             node_f1score_list[0], node_f1score_list[1]]]
 
     colors = sns.color_palette().as_hex() + sns.color_palette('hls', 8).as_hex()
-    X = np.arange(4)
+    X = np.arange(5)
     for i in range(len(data)):
         print(data[i])
         ax.bar(X + 0.25 * i, data[i], color=colors[i], width=0.25)

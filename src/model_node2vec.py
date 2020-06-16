@@ -19,6 +19,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.model_selection import GridSearchCV
 from sklearn.decomposition import PCA
+from sklearn.neighbors import kneighbors_graph
 
 
 def _build_coexp_graph(ExpMatrix, method='pearson', return_graph=False):
@@ -30,7 +31,7 @@ def _build_coexp_graph(ExpMatrix, method='pearson', return_graph=False):
         corrMatrix = pd.DataFrame(sm.pairwise.cosine_similarity(ExpMatrix), columns=ExpMatrix.index,
                                   index=ExpMatrix.index)
     else:
-        corrMatrix = ExpMatrix.T.corr(method=method)
+        corrMatrix = ExpMatrix.T.corr(method=method).abs()
 
     corrMatrix[corrMatrix == 1] = 0
     # convert adjMatrix to edgelist
@@ -61,7 +62,7 @@ def _biased_randomWalk(args):
     q: in-out parameter allows to search to differentiate between 'inward' and 'outward' nodes
     """
 
-    gene_var = Expr.mean(1)
+    gene_var = abs(Expr.mean(1))
     outer = tqdm(total=num_walks, desc='nodes', position=1)
     vec_nodes = list()
     for i in range(num_walks):
@@ -102,7 +103,7 @@ def _build_NN_Model(vector_list, size, **parameter_list) -> gensim.models.Word2V
     return gensim.models.Word2Vec(vector_list, size=size, **parameter_list)
 
 
-def _binary_classifier(embedded_node, reference_links, param_grid, **kwargs):
+def _binary_classifier(embedded_node, reference_links, param_grid, select_n, use_ref=False, **kwargs):
     """
     build binary classifier for classification
     embedded_node: a data frame with rows corresponding to genes and columns representing embedded dimensions
@@ -114,12 +115,26 @@ def _binary_classifier(embedded_node, reference_links, param_grid, **kwargs):
                                   list(embedded_node.loc[reference_links.iloc[i]['target']])
                                   for i in range(reference_links.shape[0]))
 
+    if not use_ref:
+
+        embedded_node_corr = _build_coexp_graph(embedded_node)
+        TMP = embedded_node_corr.reindex(embedded_node_corr.weight.abs().sort_values(ascending=False).index)
+        TMP_selected = pd.concat([TMP.iloc[:select_n], TMP.iloc[-select_n * 3:]])
+        TMP_selected.weight = np.concatenate((np.repeat(1, select_n), np.repeat(0, select_n * 3)), axis=None)
+
+        embedded_edges_selected = pd.DataFrame(list(embedded_node.loc[TMP_selected.iloc[i]['source']]) +
+                                               list(embedded_node.loc[TMP_selected.iloc[i]['target']])
+                                               for i in range(TMP_selected.shape[0]))
+    else:
+        embedded_edges_selected = embedded_edges
+        TMP_selected = reference_links
+
     train_features, test_features, train_targets, test_targets = train_test_split(
-        embedded_edges, reference_links['weight'].abs(),
+        embedded_edges_selected, TMP_selected['weight'].abs(),
         train_size=0.8,
         test_size=0.2,
         random_state=1,
-        stratify=reference_links['weight'].abs())
+        stratify=TMP_selected['weight'].abs())
 
     classifier = RandomForestClassifier(random_state=1, **kwargs)
 
@@ -143,8 +158,8 @@ def _binary_classifier(embedded_node, reference_links, param_grid, **kwargs):
     return prediction_all_df
 
 
-def run_node2vec(Expr, method, p, q, walk_len, num_walks, size,
-                 workers, n_pc, **kwargs):
+def run_node2vec(Expr, p, q, walk_len, num_walks, size,
+                 workers, **kwargs):
     """
     run pca and build node2vec model
     Expr: gene expression matrix
@@ -162,14 +177,18 @@ def run_node2vec(Expr, method, p, q, walk_len, num_walks, size,
 
     # rf_classifier_args = [k for k, v in inspect.signature(RandomForestClassifier).parameters.items()]
     # rf_classifier_dict = {k: kwargs.pop(k) for k in dict(kwargs) if k in rf_classifier_args}
-
     print('-----running PCA------')
-    pca = PCA(n_components=n_pc)
+    pca = PCA(n_components=5)
     pca.fit(Expr.T)
     top_pcs = pd.DataFrame(pca.components_).T
+    top_pcs.index = Expr.index
 
     print('-----running node2vec------')
-    graph = _build_coexp_graph(Expr, method=method, return_graph=True)
+    mat = kneighbors_graph(top_pcs, n_neighbors=int(Expr.shape[0]/2), metric='cosine', mode='distance', include_self=True)
+    mat.data = 1-mat.data
+    graph = nx.from_scipy_sparse_matrix(mat, create_using=nx.Graph())
+    graph = nx.relabel.relabel_nodes(graph, dict(zip(list(graph.nodes), list(Expr.index))))
+
     pool = mp.Pool(workers)
     num_of_nodes = len(graph.nodes)
 
@@ -186,13 +205,12 @@ def run_node2vec(Expr, method, p, q, walk_len, num_walks, size,
                                                           walk_len_list, num_walks_list,
                                                           p_list, q_list)))
 
-    node2vec_model = _build_NN_Model(vector_list, dimensions=size, **word2vec_dict)
+    node2vec_model = _build_NN_Model(vector_list, size=size, **word2vec_dict)
     node_vector = dict()
     for node in list(graph.nodes):
         node_vector[node] = node2vec_model.wv.get_vector(node)
 
     node_vector = pd.DataFrame.from_dict(node_vector).T
-    top_pcs.index = node_vector.index
     merge_node_vector = pd.concat([node_vector, top_pcs], axis=1)
 
     # node2vec_prob = _binary_classifier(merge_node_vector, reference_links, param_grid, **rf_classifier_dict)
